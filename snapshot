@@ -1,0 +1,51 @@
+#!/bin/bash
+
+if [ $EUID -ne 0 ]; then
+	echo "$0: Permission denied"
+	exit 1
+fi
+
+SNAP_DIR=/root/top-level/snapshots
+MAX_SNAP=2
+PREV_ROOT_SNAP=$(find $SNAP_DIR/root -maxdepth 1 -mindepth 1 -type d | sort | tail -n 2 | head -n 1)
+PREV_HOME_SNAP=$(find $SNAP_DIR/home -maxdepth 1 -mindepth 1 -type d | sort | tail -n 2 | head -n 1)
+OLDEST_ROOT_SNAP=$(find $SNAP_DIR/root -maxdepth 1 -mindepth 1 -type d | sort | head -n 1)
+OLDEST_HOME_SNAP=$(find $SNAP_DIR/home -maxdepth 1 -mindepth 1 -type d | sort | head -n 1)
+CUR_DATE=$(date +%FT%T)
+if [ "$PREV_ROOT_SNAP" == "$SNAP_DIR/root/$CUR_DATE" ]; then
+	echo "$0: snapshot '$CUR_DATE' already exists"
+else
+	btrfs subvolume snapshot -r / "$SNAP_DIR/root/$CUR_DATE"
+	btrfs subvolume snapshot -r /home "$SNAP_DIR/home/$CUR_DATE"
+fi
+
+if [ "$1" == send ]; then
+	BACKUP_DRIVE=/dev/disk/by-label/WIRELESS_PLUS_LUKS
+	if [ ! -e $BACKUP_DRIVE ]; then
+		echo "$0: $BACKUP_DRIVE does not exist"
+		exit 1
+	fi
+
+	cryptsetup open /dev/disk/by-label/WIRELESS_PLUS_LUKS cryptbackup
+	wait
+	mount -o defaults,noatime,compress=zstd:1 /dev/mapper/cryptbackup /mnt
+
+	BACKUP_DIR=/mnt/backup
+	if [ "$2" == incremental ]; then
+		btrfs send -p "$PREV_ROOT_SNAP" "$SNAP_DIR/root/$CUR_DATE" | btrfs receive $BACKUP_DIR/root
+		btrfs send -p "$PREV_HOME_SNAP" "$SNAP_DIR/home/$CUR_DATE" | btrfs receive $BACKUP_DIR/home
+	else
+		btrfs send "$SNAP_DIR/root/$CUR_DATE" | btrfs receive $BACKUP_DIR/root
+		btrfs send "$SNAP_DIR/home/$CUR_DATE" | btrfs receive $BACKUP_DIR/home
+	fi
+	wait
+	PREV_ROOT_BACKUP=$(find $BACKUP_DIR/root -maxdepth 1 -mindepth 1 -type d | sort | head -n 1)
+	PREV_HOME_BACKUP=$(find $BACKUP_DIR/home -maxdepth 1 -mindepth 1 -type d | sort | head -n 1)
+	if [ "$(find $BACKUP_DIR/root -maxdepth 1 -mindepth 1 -type d | wc -l)" -gt $MAX_SNAP ]; then
+		btrfs subvolume delete "$PREV_ROOT_BACKUP" "$PREV_HOME_BACKUP"
+	fi
+fi
+wait
+if [ "$(find $SNAP_DIR/root -maxdepth 1 -mindepth 1 -type d | wc -l)" -gt $MAX_SNAP ]; then
+	btrfs subvolume delete "$OLDEST_ROOT_SNAP" "$OLDEST_HOME_SNAP"
+fi
