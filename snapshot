@@ -4,6 +4,22 @@ if [ $EUID -ne 0 ]; then
 	echo "$0: Permission denied"
 	exit 1
 fi
+if [ -n "$1" ]; then
+	if [ "$1" != send ]; then
+		echo "$0: invalid option \"$1\""
+		exit 1
+	fi
+	if [ -n "$2" ]; then
+		if [ "$2" != incremental ]; then
+			echo "$0: invalid option \"$2\""
+			exit 1
+		fi
+		if [ -n "$3" ]; then
+			echo "$0: invalid option \"$3\""
+			exit 1
+		fi
+	fi
+fi
 
 SNAP_DIR=/root/top-level/snapshots
 MAX_SNAP=2
