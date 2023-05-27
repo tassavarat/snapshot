@@ -1,4 +1,7 @@
 #!/bin/bash
+# Requires mounting of subvol / at /root/top-level
+# top-level should contain snapshot directory
+# snapshot directory should contain the following directories: boot home root
 
 if [ $EUID -ne 0 ]; then
 	echo "$0: Permission denied"
