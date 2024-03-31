@@ -31,6 +31,7 @@ PREV_HOME_SNAP=$(find $SNAP_DIR/home -maxdepth 1 -mindepth 1 -type d | sort | ta
 OLDEST_ROOT_SNAP=$(find $SNAP_DIR/root -maxdepth 1 -mindepth 1 -type d | sort | head -n 1)
 OLDEST_HOME_SNAP=$(find $SNAP_DIR/home -maxdepth 1 -mindepth 1 -type d | sort | head -n 1)
 CUR_DATE=$(date +%FT%T)
+
 rsync -a --delete -v /boot $SNAP_DIR
 if [ "$PREV_ROOT_SNAP" == "$SNAP_DIR/root/$CUR_DATE" ]; then
 	echo "$0: snapshot '$CUR_DATE' already exists"
@@ -48,7 +49,7 @@ if [ "$1" == send ]; then
 
 	cryptsetup open /dev/disk/by-label/WIRELESS_PLUS_LUKS cryptbackup
 	wait
-	if [ $(mount -o defaults,noatime,compress=zstd:1 /dev/mapper/cryptbackup /mnt) != 0 ]; then
+	if [ "$(mount -o defaults,noatime,compress=zstd:1 /dev/mapper/cryptbackup /mnt)" != 0 ]; then
 		exit 1
 	fi
 
