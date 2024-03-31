@@ -48,7 +48,9 @@ if [ "$1" == send ]; then
 
 	cryptsetup open /dev/disk/by-label/WIRELESS_PLUS_LUKS cryptbackup
 	wait
-	mount -o defaults,noatime,compress=zstd:1 /dev/mapper/cryptbackup /mnt
+	if [ $(mount -o defaults,noatime,compress=zstd:1 /dev/mapper/cryptbackup /mnt) != 0 ]; then
+		exit 1
+	fi
 
 	BACKUP_DIR=/mnt/backup
 
